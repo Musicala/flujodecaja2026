@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" />
+  <title>Flujo de Caja Musicala · Control visual</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="stylesheet" href="./styles.css?v=9" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script type="module" src="./app.js?v=14"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brandDot"></div>
+      <div>
+        <h1>Flujo de Caja · Musicala</h1>
+        <p>Tablero visual + Flujo de Caja + RIP + Extractos + importadores.</p>
+      </div>
+    </div>
+    <div class="topActions">
+      <span id="userEmail" class="pill">Sin sesión</span>
+      <button id="btnLogin" class="btn primary">Entrar con Google</button>
+      <button id="btnLogout" class="btn ghost hidden">Salir</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="blocked" class="card hidden">
+      <h2>Acceso restringido</h2>
+      <p class="muted">Solo correos autorizados de Musicala. La seguridad también decidió aparecer a trabajar.</p>
+    </section>
+
+    <section id="app" class="hidden">
+      <nav class="tabs">
+        <button class="tab active" data-view="inicio">Inicio visual</button>
+        <button class="tab" data-view="flujo">Flujo de Caja</button>
+        <button class="tab" data-view="rip">RIP</button>
+        <button class="tab" data-view="extractos">Extractos</button>
+        <button class="tab" data-view="subir-bancos">Subir bancos</button>
+        <button class="tab" data-view="subir-extractos">Subir extractos</button>
+        <button class="tab" data-view="calendario">Calendario</button>
+        <button class="tab" data-view="reglas">Reglas</button>
+        <button class="tab" data-view="facturacion">Facturación</button>
+        <button class="tab" data-view="conciliacion">Conciliación</button>
+      </nav>
+
+      <section id="view-inicio" class="view active">
+        <div class="hero card">
+          <div class="cardHead">
+            <div>
+              <h2>Resumen visual</h2>
+              <p class="muted">Primero las comparaciones, luego las tablas. Porque mirar 800 filas sin contexto es castigo medieval con scroll.</p>
+            </div>
+            <div class="filters">
+              <label>Desde<input id="dashFrom" type="date"></label>
+              <label>Hasta<input id="dashTo" type="date"></label>
+              <button id="btnApplyDashboard" class="btn primary">Aplicar</button>
+            </div>
+          </div>
+          <div class="monthBar" id="monthBar"></div>
+          <div class="kpis">
+            <article><span>Ingresos reales FC</span><strong id="kpiIn">$0</strong></article>
+            <article><span>Egresos FC</span><strong id="kpiOut">$0</strong></article>
+            <article><span>Neto FC</span><strong id="kpiNet">$0</strong></article>
+            <article><span>Diferencia RIP vs fuentes</span><strong id="kpiDiff">$0</strong></article>
+          </div>
+          <div class="kpis" style="margin-top:10px;grid-template-columns:repeat(3,1fr)">
+            <article style="border-top:3px solid #e01e37"><span>Saldo Bancolombia</span><strong id="saldoBancolombia">$0</strong></article>
+            <article style="border-top:3px solid #e94e1b"><span>Saldo Davivienda</span><strong id="saldoDavivienda">$0</strong></article>
+            <article style="border-top:3px solid var(--a1)"><span>Saldo Bold CF</span><strong id="saldoBold">$0</strong></article>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card bigChart"><h3>Comparación RIP vs Flujo vs Extractos</h3><p class="muted">B2C esperado contra lo recibido en banco/PDF.</p><div class="chartBox"><canvas id="chartCompareSources"></canvas></div></div>
+          <div class="card bigChart"><h3>Ingresos vs egresos FC</h3><p class="muted">Movimiento mensual del flujo.</p><div class="chartBox"><canvas id="chartMonth"></canvas></div></div>
+        </div>
+
+        <div class="grid2">
+          <div class="card"><h3>Top gastos por categoría</h3><p class="muted">El ranking de los sospechosos habituales.</p><div class="chartBox"><canvas id="chartTopExpenses"></canvas></div></div>
+          <div class="card"><h3>Comparativa mensual de gastos</h3><p class="muted">Categorías apiladas por mes.</p><div class="chartBox"><canvas id="chartExpenseMonthCat"></canvas></div></div>
+        </div>
+
+        <div class="grid3">
+          <div class="card"><h3>Por método de pago</h3><div id="listMethod" class="list"></div></div>
+          <div class="card"><h3>Saldos por método</h3><div id="listBalances" class="list"></div></div>
+          <div class="card"><h3>Alertas visuales</h3><div id="listAlerts" class="list"></div></div>
+        </div>
+
+        <div class="card">
+          <h3>Comparativa mensual · RIP vs Flujo vs Extractos</h3>
+          <p class="muted tiny">Diferencia = (Flujo B2C + Extractos) − RIP. Positivo = más cobrado de lo que RIP registra.</p>
+          <div class="tableWrap">
+            <table><thead><tr><th>Mes</th><th class="num">RIP B2C</th><th class="num">Flujo B2C</th><th class="num">Extractos</th><th class="num">Diferencia</th></tr></thead>
+            <tbody id="compareMonthBody"></tbody></table>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-flujo" class="view">
+        <div class="card">
+          <div class="cardHead">
+            <div><h2>Flujo de Caja</h2><p class="muted">Información general de Firestore y movimientos con búsqueda/edición.</p></div>
+            <button id="btnNewFlow" class="btn primary">Nuevo movimiento</button>
+          </div>
+          <div class="monthBar" id="flujoMonthBar"></div>
+          <div class="kpis miniKpis">
+            <article><span>Ingresos reales</span><strong id="fcTotalIn">$0</strong></article>
+            <article><span>Egresos</span><strong id="fcTotalOut">$0</strong></article>
+            <article><span>Transferencias internas</span><strong id="fcInternal">$0</strong></article>
+            <article><span>Registros</span><strong id="fcCount">0</strong></article>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="card">
+            <h3>Gastos por categoría</h3>
+            <p class="muted tiny">Distribución de egresos en el período.</p>
+            <div id="listExpensesByCat" class="list"></div>
+          </div>
+          <div class="card">
+            <h3>Ingresos por canal</h3>
+            <p class="muted tiny">Ingresos reales agrupados por método de pago.</p>
+            <div id="listIncomeByCanal" class="list"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="cardHead">
+            <div><h3>Movimientos</h3><p class="muted tiny">Filtra y edita desde aquí.</p></div>
+            <div class="filters">
+              <label>Mes<select id="fcMes"><option value="">Todos los meses</option></select></label>
+              <label>Desde<input id="txFrom" type="date"></label>
+              <label>Hasta<input id="txTo" type="date"></label>
+              <label>Tipo<select id="txTipo"><option value="">Todos</option><option>Ingreso</option><option>Egreso</option><option value="Cambio de cuenta">Cambio de cuenta</option></select></label>
+              <label>Categoría<select id="txCat"><option value="">Todas las categorías</option></select></label>
+              <label>Canal<select id="txCanal"><option value="">Todos los canales</option></select></label>
+              <label>Buscar<input id="txQ" placeholder="Descripción, categoría, método..."></label>
+              <button id="btnApplyTx" class="btn primary">Buscar</button>
+              <button id="btnSinCat" class="btn ghost">Sin clasificar</button>
+              <button id="btnExport" class="btn ghost">CSV</button>
+              <button id="btnAutoCat" class="btn ghost">Auto-categorizar</button>
+              <button id="btnReCat" class="btn ghost">Re-categorizar todo</button>
+            </div>
+            <div class="flowSelection">
+              <span class="muted">Selección:</span>
+              <span>Ingresos <strong class="good" id="fcFiltIn">$0</strong></span>
+              <span>Egresos <strong class="bad" id="fcFiltOut">$0</strong></span>
+              <span class="muted" id="fcFiltCount">0 registros</span>
+            </div>
+          </div>
+          <div class="tableWrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th class="num">Monto</th><th>Método</th><th>Categoría</th><th>Obs</th><th>Factura</th><th>RIP</th><th>Acciones</th></tr></thead><tbody id="txBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section id="view-rip" class="view">
+        <div class="card">
+          <div class="cardHead">
+            <div><h2>RIP · Clientes B2C</h2><p class="muted">Datos del proyecto <code>rip-musicala</code>. Expande el array <code>usuarios</code> — un registro por estudiante.</p></div>
+            <div class="actionsBar"><button id="btnRipLogin" class="btn primary">Conectar RIP</button><span id="ripEmail" class="pill">RIP sin sesión</span></div>
+          </div>
+          <div class="controlsPro">
+            <label>Desde<input id="ripFrom" type="date"></label>
+            <label>Hasta<input id="ripTo" type="date"></label>
+            <label>Servicio<select id="ripServFilter"><option value="">Todos los servicios</option></select></label>
+            <label>Medio de pago<select id="ripMetFilter"><option value="">Todos los medios</option></select></label>
+            <label>Buscar<input id="ripQ" placeholder="Estudiante, servicio..."></label>
+            <label>Colección<input id="ripCollection" value="clientesB2C" style="max-width:160px"></label>
+            <button id="btnLoadRip" class="btn ghost">↺ Recargar</button>
+            <button id="btnFilterRip" class="btn primary">Filtrar</button>
+          </div>
+          <div class="kpis miniKpis">
+            <article><span>Total RIP periodo</span><strong id="ripKpiTotal">$0</strong></article>
+            <article><span>Registros</span><strong id="ripKpiCount">0</strong></article>
+            <article><span>Servicios únicos</span><strong id="ripKpiServicios">—</strong></article>
+            <article><span>Medios de pago</span><strong id="ripKpiMetodos">—</strong></article>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card bigChart"><h3>Por servicio</h3><div class="chartBox"><canvas id="chartRipService"></canvas></div></div>
+          <div class="card"><h3>Por medio de pago</h3><div class="chartBox"><canvas id="chartRipMethod"></canvas></div></div>
+        </div>
+
+        <div class="card bigChart"><h3>Ingresos RIP por mes</h3><div class="chartBox"><canvas id="chartRipMonth"></canvas></div></div>
+
+        <div class="grid2">
+          <div class="card">
+            <h3>Desglose por servicio</h3>
+            <div class="tableWrap">
+              <table><thead><tr><th>Servicio</th><th class="num">#</th><th class="num">Total</th><th class="num">%</th></tr></thead>
+              <tbody id="ripServTable"></tbody></table>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Desglose por medio de pago</h3>
+            <div class="tableWrap">
+              <table><thead><tr><th>Medio</th><th class="num">#</th><th class="num">Total</th><th class="num">%</th></tr></thead>
+              <tbody id="ripMetTable"></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Registros RIP</h3>
+          <div class="tableWrap"><table><thead><tr><th>FC</th><th>Fecha</th><th>Estudiante</th><th>Servicio</th><th>Medio de pago</th><th class="num">Monto</th><th>Acciones</th></tr></thead><tbody id="ripBody"></tbody></table></div>
+        </div>
+
+      </section>
+
+      <section id="view-extractos" class="view">
+        <div class="card">
+          <div class="cardHead">
+            <div><h2>Extractos</h2><p class="muted">Información obtenida desde PDF o texto de extractos. Separada del Flujo de Caja para comparar sin contaminar los datos, hermoso concepto.</p></div>
+            <button id="btnNewExtract" class="btn primary">Nuevo extracto manual</button>
+          </div>
+          <div class="kpis miniKpis">
+            <article><span>Total ingresos extracto</span><strong id="extTotalIn">$0</strong></article>
+            <article><span>Total egresos extracto</span><strong id="extTotalOut">$0</strong></article>
+            <article><span>Registros</span><strong id="extCount">0</strong></article>
+            <article><span>Coincidencias RIP</span><strong id="extMatches">0</strong></article>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="card"><h3>Extractos por mes</h3><div class="chartBox"><canvas id="chartExtractMonth"></canvas></div></div>
+          <div class="card"><h3>Palabras frecuentes → categorías</h3><div id="wordCloud" class="wordCloud"></div></div>
+        </div>
+        <div class="card">
+          <div class="cardHead"><h3>Registros de extractos</h3><div class="filters"><label>Buscar<input id="extQ" placeholder="Descripción, categoría, banco..."></label><button id="btnFilterExt" class="btn primary">Buscar</button></div></div>
+          <div class="tableWrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th class="num">Monto</th><th>Banco</th><th>Categoría</th><th>Acciones</th></tr></thead><tbody id="extractBody"></tbody></table></div>
+        </div>
+      </section>
+
+      <section id="view-subir-bancos" class="view">
+        <div class="bankGrid">
+          <div>
+            <div class="card"><div class="cardHead"><div><h2>Subir bancos</h2><p class="muted">Bancolombia / Davivienda / Bold / Nequi → Flujo de Caja.</p></div></div>
+              <div class="controlsPro"><label>Fuente<select id="bankSource"><option value="auto" selected>Auto-detectar</option><option value="bancolombia">Bancolombia CSV</option><option value="davivienda">Davivienda Excel</option><option value="bold">Bold Excel</option><option value="nequi">Nequi CSV/Excel</option></select></label><label>Modo Bold<select id="boldMode"><option value="deposito" selected>Neto depósito</option><option value="bruto">Bruto valor total</option></select></label><label class="check"><input type="checkbox" id="boldOnlyOk" checked> Solo cobro exitoso</label><label class="check"><input type="checkbox" id="splitFees" checked> Desglosar rete/fees</label></div>
+              <div id="dropzone" class="dropzone" tabindex="0"><div class="dzEmoji">📄</div><div><strong>Suelta aquí el archivo del banco</strong><p class="muted">o haz clic para elegir .csv / .xlsx</p></div><input id="bankFile" type="file" accept=".csv,.xlsx"></div>
+              <div class="kpis miniKpis"><article><span>Listas</span><strong id="readyCount">0</strong></article><article><span>Duplicadas</span><strong id="dupCount">0</strong></article><article><span>Incompletas</span><strong id="badCount">0</strong></article><article><span>Fuente</span><strong id="bankSourcePill">—</strong></article></div>
+              <div class="actionsBar"><button id="btnUploadBank" class="btn primary" disabled>Subir a Flujo de Caja</button><button id="btnBankCsv" class="btn ghost" disabled>Descargar CSV</button><button id="btnBankClear" class="btn ghost">Limpiar</button></div>
+            </div>
+            <div id="saldoCheckBank"></div>
+            <div class="card"><h3>Vista previa bancos</h3><div class="tableWrap"><table><thead><tr><th>Estado</th><th>Fecha</th><th>Tipo</th><th>Descripción</th><th class="num">Monto</th><th>Método</th><th>Categoría</th><th>Observación</th></tr></thead><tbody id="bankBody"><tr><td colspan="8" class="muted">Carga un archivo para revisar transacciones.</td></tr></tbody></table></div><pre id="bankLog" class="log">Esperando archivo...</pre></div>
+          </div>
+          <aside class="card"><h2>Calendario de subidas</h2><p id="monthStats" class="muted">—</p><div class="calNav"><button id="calPrev" class="mini">‹</button><strong id="calTitle">—</strong><button id="calNext" class="mini">›</button></div><div class="legend"><span><i class="dot uploaded"></i> Con datos</span><span><i class="dot missing"></i> Falta</span><span><i class="dot off"></i> No cuenta</span></div><div id="calendarBox" class="calendar"></div><h3>Importaciones recientes</h3><div id="recentImports" class="list"></div></aside>
+        </div>
+      </section>
+
+      <section id="view-subir-extractos" class="view">
+        <div class="card">
+          <div class="cardHead"><div><h2>Subir extractos PDF / texto</h2><p class="muted">Extrae movimientos desde PDF y los guarda en la colección de Extractos, no en Flujo de Caja.</p></div></div>
+          <div class="controlsPro"><label>Banco / fuente<input id="pdfBank" placeholder="Bancolombia, Davivienda..."></label><label>Archivo PDF<input id="pdfFile" type="file" accept=".pdf,.txt"></label><button id="btnReadPdf" class="btn primary">Leer extracto</button><button id="btnSavePdfTx" class="btn ghost" disabled>Guardar en Extractos</button></div>
+          <textarea id="pdfText" rows="7" placeholder="También puedes pegar aquí texto del extracto..."></textarea>
+          <div class="actionsBar"><button id="btnParseText" class="btn primary">Detectar movimientos desde texto</button><button id="btnClearPdf" class="btn ghost">Limpiar</button></div>
+          <pre id="pdfLog" class="log">Esperando extracto...</pre>
+        </div>
+        <div id="saldoCheckPdf"></div>
+        <div class="card"><h3>Vista previa extracto</h3><div class="tableWrap"><table><thead><tr><th>Estado</th><th>Fecha</th><th>Tipo</th><th>Descripción</th><th class="num">Monto</th><th>Banco</th><th>Categoría sugerida</th></tr></thead><tbody id="pdfBody"><tr><td colspan="7" class="muted">Sin movimientos detectados.</td></tr></tbody></table></div></div>
+      </section>
+
+      <section id="view-calendario" class="view">
+        <div class="card"><h2>Calendario de control</h2><p class="muted">Días con movimientos cargados en Flujo de Caja. Sirve para no subir dos veces el mismo extracto como si uno estuviera coleccionando problemas.</p><div class="calNav"><button id="calPrev2" class="mini">‹</button><strong id="calTitle2">—</strong><button id="calNext2" class="mini">›</button></div><div id="calendarBox2" class="calendar big"></div></div>
+      </section>
+
+      <section id="view-reglas" class="view">
+        <div class="card"><h2>Reglas Firestore</h2><p class="muted">Incluye Flujo, importaciones y Extractos. RIP usa su propio proyecto y reglas.</p><pre id="rulesBox" class="code"></pre></div>
+      </section>
+
+      <section id="view-conciliacion" class="view">
+        <div class="card">
+          <div class="cardHead">
+            <div>
+              <h2>Conciliación RIP ↔ Flujo de Caja</h2>
+              <p class="muted tiny">Llave única: <code>fecha-monto-medioPago-#</code> — igual metodología que tu Sheets. Compara RIP vs movimientos "Clases B2C" del Flujo de Caja.</p>
+            </div>
+          </div>
+          <div class="monthBar" id="reconcMonthBar"></div>
+          <div id="reconcSummary" style="margin-top:14px"></div>
+        </div>
+      </section>
+
+      <section id="view-facturacion" class="view">
+
+        <!-- Nota legal -->
+        <div class="card bilNoteCard">
+          <div>
+            <h3>Nota sugerida para incluir en la factura</h3>
+            <p class="muted tiny bilNoteText">Para efectos del IVA esta factura se acoge a la normativa del artículo 476, numeral 18 del estatuto tributario y el artículo 6 de la Ley 1493 de 2011, la cual indica: "Están excluidos del IVA los espectáculos públicos de las artes escénicas, así como los servicios artísticos prestados para la realización de los espectáculos públicos de las artes escénicas definidos en el literal c) del artículo 3° de la presente ley."</p>
+          </div>
+          <button id="bilBtnCopyNote" class="btn ghost" type="button">Copiar nota</button>
+        </div>
+
+        <!-- KPIs + acciones -->
+        <div class="card">
+          <div class="cardHead">
+            <div>
+              <h2>Facturación · Musicala</h2>
+              <p class="muted tiny" id="bilStatus">Carga RIP primero (pestaña RIP → Conectar RIP).</p>
+            </div>
+            <div class="filters">
+              <label>FEVM<input id="bilFEVM" placeholder="FEVM-0000" autocomplete="off" style="width:150px"></label>
+              <button id="bilBtnMark" class="btn primary" type="button">Marcar facturado</button>
+              <button id="bilBtnSelectAll" class="btn ghost" type="button">Sel. todo</button>
+              <button id="bilBtnClearSel" class="btn ghost" type="button">Limpiar sel.</button>
+              <button id="bilBtnRefresh" class="btn ghost" type="button">↺ Actualizar</button>
+            </div>
+          </div>
+          <div class="monthBar" id="facturacionMonthBar"></div>
+          <div class="kpis miniKpis" style="margin-top:14px">
+            <article><span>Pendientes</span><strong id="bilKpiPend">0</strong></article>
+            <article><span>Facturadas</span><strong id="bilKpiFact">0</strong></article>
+            <article><span>No verificadas</span><strong id="bilKpiNover">0</strong></article>
+            <article><span>Ingresos sin id.</span><strong id="bilKpiIng">0</strong></article>
+            <article><span>Seleccionadas</span><strong id="bilKpiSel">0</strong></article>
+          </div>
+        </div>
+
+        <!-- Sub-tabs facturación -->
+        <nav class="tabs">
+          <button class="tab active" data-bil="pend" type="button">Pendientes</button>
+          <button class="tab" data-bil="fact" type="button">Facturadas</button>
+          <button class="tab" data-bil="nover" type="button">No verificadas</button>
+          <button class="tab" data-bil="ing" type="button">Ingresos sin id.</button>
+          <button class="tab" data-bil="buscar" type="button">Buscar</button>
+        </nav>
+
+        <!-- Panel Pendientes -->
+        <div id="bilPane-pend" class="card">
+          <div class="cardHead" style="margin-bottom:10px">
+            <p class="muted tiny">Verificadas en Flujo como Clases B2C y sin FEVM. Clic en fila para ver detalle.</p>
+            <div class="filters">
+              <input id="bilQPend" placeholder="Inscripción / matchkey / medio / documento...">
+              <select id="bilFMedio"><option value="">Todos los medios</option></select>
+            </div>
+          </div>
+          <div class="tableWrap">
+            <table><thead><tr><th style="width:40px;text-align:center">Sel</th><th>Fecha</th><th>Inscripción</th><th class="num">Total</th><th>Medio</th><th>Documento</th><th>FC</th><th>MatchKey</th></tr></thead>
+            <tbody id="bilBodyPend"></tbody></table>
+          </div>
+          <p class="muted" id="bilEmptyPend" hidden style="padding:14px">Sin pendientes 🎉</p>
+        </div>
+
+        <!-- Panel Facturadas -->
+        <div id="bilPane-fact" class="card hidden">
+          <div class="cardHead" style="margin-bottom:10px">
+            <p class="muted tiny">Ventas RIP con FEVM registrado. Clic en fila para ver detalle.</p>
+            <div class="filters"><input id="bilQFact" placeholder="FEVM / inscripción / matchkey / documento..."></div>
+          </div>
+          <div class="tableWrap">
+            <table><thead><tr><th>Fecha</th><th>Inscripción</th><th class="num">Total</th><th>Medio</th><th>Documento</th><th>MatchKey</th><th>FEVM</th></tr></thead>
+            <tbody id="bilBodyFact"></tbody></table>
+          </div>
+          <p class="muted" id="bilEmptyFact" hidden style="padding:14px">Sin facturadas 🤷</p>
+        </div>
+
+        <!-- Panel No verificadas -->
+        <div id="bilPane-nover" class="card hidden">
+          <div class="cardHead" style="margin-bottom:10px">
+            <p class="muted tiny">RIP sin match en FC + ingresos de FC sin match en RIP. Ambos lados sin conciliar.</p>
+            <div class="filters"><input id="bilQNover" placeholder="Inscripción / categoría / medio / clave conciliación..."></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+            <div>
+              <h4 style="margin:0 0 6px;font-size:0.9rem">RIP sin match en FC <span id="bilBadgeNoverRip" class="badge bad">0</span></h4>
+              <div class="tableWrap">
+                <table><thead><tr><th>Fecha</th><th>Inscripción</th><th class="num">Total</th><th>Medio</th><th>Documento</th><th>FEVM</th><th>Clave conciliación</th></tr></thead>
+                <tbody id="bilBodyNoverRip"></tbody></table>
+              </div>
+            </div>
+            <div>
+              <h4 style="margin:0 0 6px;font-size:0.9rem">FC sin conciliar <span id="bilBadgeNoverFc" class="badge warn">0</span></h4>
+              <div class="tableWrap">
+                <table><thead><tr><th>Fecha</th><th>Categoría</th><th class="num">Total</th><th>Medio</th><th>Clave conciliación</th></tr></thead>
+                <tbody id="bilBodyNoverFc"></tbody></table>
+              </div>
+            </div>
+          </div>
+          <p class="muted" id="bilEmptyNover" hidden style="padding:14px">Todo conciliado ✨</p>
+        </div>
+
+        <!-- Panel Ingresos sin identificar (oculto, datos ahora en No verificadas) -->
+        <div id="bilPane-ing" class="hidden">
+          <tbody id="bilBodyIng"></tbody>
+          <p id="bilEmptyIng" hidden></p>
+        </div>
+
+        <!-- Panel Buscar -->
+        <div id="bilPane-buscar" class="card hidden">
+          <div class="cardHead" style="margin-bottom:10px">
+            <h3>Buscar factura</h3>
+            <div class="filters">
+              <input id="bilQSearch" placeholder="FEVM, MatchKey, inscripción, documento...">
+              <select id="bilSearchType"><option value="text">Texto</option><option value="factura">Factura (FEVM)</option><option value="matchkey">MatchKey</option></select>
+              <button id="bilBtnSearch" class="btn primary" type="button">Buscar</button>
+            </div>
+          </div>
+          <div class="tableWrap">
+            <table><thead><tr><th>Fecha</th><th>Inscripción</th><th class="num">Total</th><th>Medio</th><th>Documento</th><th>MatchKey</th><th>FEVM</th></tr></thead>
+            <tbody id="bilBodySearch"></tbody></table>
+          </div>
+          <p class="muted" id="bilEmptySearch" hidden style="padding:14px">Sin resultados.</p>
+        </div>
+
+      </section>
+    </section>
+  </main>
+
+  <!-- Diálogo detalle de facturación -->
+  <dialog id="bilDetailDlg">
+    <form method="dialog" class="bilDetailForm">
+      <div class="cardHead">
+        <div>
+          <h3 style="margin:0">Detalle de venta</h3>
+          <p class="muted tiny" id="bilDetailSub">—</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0">
+          <button id="bilBtnCopyDetail" class="btn ghost" type="button">Copiar</button>
+          <button class="btn ghost" value="cancel">Cerrar</button>
+        </div>
+      </div>
+
+      <div class="kpis miniKpis" style="margin-top:14px;grid-template-columns:repeat(3,1fr)">
+        <article><span>Inscripción</span><strong id="bilDIns" style="font-size:15px">—</strong></article>
+        <article><span>Documento</span><strong id="bilDDoc" style="font-size:15px">—</strong></article>
+        <article><span>Total</span><strong id="bilDTot" style="font-size:15px">—</strong></article>
+        <article><span>Medio</span><strong id="bilDMed" style="font-size:15px">—</strong></article>
+        <article><span>Recargo</span><strong id="bilDRec" style="font-size:15px">—</strong></article>
+        <article><span>Descuentos</span><strong id="bilDDes" style="font-size:15px">—</strong></article>
+      </div>
+
+      <div style="margin-top:14px">
+        <p class="muted tiny" style="margin-bottom:6px;font-weight:700">Servicios / Paquete</p>
+        <div class="tableWrap">
+          <table style="min-width:unset"><thead><tr><th>Usuario</th><th>Servicio</th><th class="num">Precio</th></tr></thead>
+          <tbody id="bilDetailSvBody"></tbody></table>
+        </div>
+        <p class="muted tiny" id="bilDetailSvEmpty" hidden style="padding:8px">Sin detalle de servicios.</p>
+      </div>
+
+      <div style="margin-top:16px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <label style="display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:12px;font-weight:700;flex:1;min-width:140px">
+          Factura (FEVM)
+          <input id="bilDetailFEVM" placeholder="FEVM-0000" autocomplete="off">
+        </label>
+        <button id="bilDetailBtnSave" class="btn primary" type="button">Guardar factura</button>
+      </div>
+      <p class="muted tiny" id="bilDetailStatus" style="margin-top:6px;min-height:18px"></p>
+
+      <div style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
+        <p class="muted tiny">MatchKey: <code id="bilDetailMK">—</code></p>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="editDialog">
+    <form method="dialog" id="editForm" class="modalForm">
+      <h2 id="editTitle">Editar</h2>
+      <input type="hidden" id="editCollection"><input type="hidden" id="editDocId"><input type="hidden" id="editKind">
+      <label>Fecha<input id="editFecha" type="date"></label>
+      <label>Tipo<select id="editTipo"><option>Ingreso</option><option>Egreso</option></select></label>
+      <label class="wide">Descripción / estudiante<input id="editDescripcion"></label>
+      <label>Monto<input id="editMonto" type="number" step="0.01"></label>
+      <label>Método / medio / banco<input id="editMetodo"></label>
+      <label>Categoría / servicio<input id="editCategoria"></label>
+      <label>Factura<input id="editFactura"></label>
+      <label>ID Ref<input id="editRef"></label>
+      <label class="wide">Observaciones<textarea id="editObs" rows="3"></textarea></label>
+      <div class="formActions wide"><button class="btn primary" id="btnSaveEdit" value="default">Guardar</button><button class="btn ghost" value="cancel">Cancelar</button></div>
+    </form>
+  </dialog>
+  <div id="toast" class="toast hidden"></div>
+</body>
+</html>
