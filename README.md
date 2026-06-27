@@ -28,3 +28,11 @@ Proyecto RIP `rip-musicala`:
 - Las categorías `Transferencia Musicala` no cuentan como ingreso real.
 - Bold → Bancolombia / Davivienda / Nequi se trata como traslado interno.
 - Los extractos PDF se guardan separados del flujo para comparar antes de decidir si entran o no al flujo oficial.
+
+## Egresos esperados
+
+La pestaña Egresos guarda nómina importada y cuentas de cobro esperadas en `flujo_caja_egresos_esperados`.
+
+Acepta CSV o XLSX con columnas como `vencimiento`, `fecha`, `proveedor`, `docente`, `personal`, `valor`, `monto`, `total`, `pago`, `medio`, `banco`, `metodo`, `categoria`, `detalle`, `descripcion` y `estado`.
+
+Un egreso aparece como `Pagado` si encuentra un movimiento tipo `Egreso` en `flujo_caja_transacciones` con fecha, valor y medio equivalentes. Si no hay match, queda `Pendiente`.

@@ -10,7 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script type="module" src="./app.js?v=14"></script>
+  <script type="module" src="./app.js?v=22"></script>
 </head>
 <body>
   <header class="topbar">
@@ -40,6 +40,7 @@
         <button class="tab" data-view="flujo">Flujo de Caja</button>
         <button class="tab" data-view="rip">RIP</button>
         <button class="tab" data-view="extractos">Extractos</button>
+        <button class="tab" data-view="egresos">Egresos</button>
         <button class="tab" data-view="subir-bancos">Subir bancos</button>
         <button class="tab" data-view="subir-extractos">Subir extractos</button>
         <button class="tab" data-view="calendario">Calendario</button>
@@ -135,6 +136,7 @@
               <label>Desde<input id="txFrom" type="date"></label>
               <label>Hasta<input id="txTo" type="date"></label>
               <label>Tipo<select id="txTipo"><option value="">Todos</option><option>Ingreso</option><option>Egreso</option><option value="Cambio de cuenta">Cambio de cuenta</option></select></label>
+              <label>Facturación<select id="txFact"><option value="">Todos</option><option value="facturados">Facturados</option><option value="por-facturar">Por facturar</option></select></label>
               <label>Categoría<select id="txCat"><option value="">Todas las categorías</option></select></label>
               <label>Canal<select id="txCanal"><option value="">Todos los canales</option></select></label>
               <label>Buscar<input id="txQ" placeholder="Descripción, categoría, método..."></label>
@@ -155,7 +157,7 @@
         </div>
       </section>
 
-      <section id="view-rip" class="view">
+<section id="view-rip" class="view">
         <div class="card">
           <div class="cardHead">
             <div><h2>RIP · Clientes B2C</h2><p class="muted">Datos del proyecto <code>rip-musicala</code>. Expande el array <code>usuarios</code> — un registro por estudiante.</p></div>
@@ -233,6 +235,60 @@
         </div>
       </section>
 
+      <section id="view-egresos" class="view">
+        <div class="card">
+          <div class="cardHead">
+            <div>
+              <h2>Seguimiento de egresos</h2>
+              <p class="muted">Nómina importada + cuentas de cobro de proveedores contra egresos reales en Flujo de Caja.</p>
+            </div>
+            <button id="btnNewExpected" class="btn primary">Nuevo egreso esperado</button>
+          </div>
+          <div class="controlsPro">
+            <label>Origen
+              <select id="egImportSource">
+                <option value="Proveedor">Proveedor / cuenta de cobro</option>
+                <option value="Nómina">Nómina</option>
+              </select>
+            </label>
+            <label>Archivo CSV/XLSX<input id="egFile" type="file" accept=".csv,.xlsx"></label>
+            <button id="btnImportExpected" class="btn primary" type="button">Importar esperados</button>
+          </div>
+          <p class="muted tiny">Columnas aceptadas: vencimiento/fecha, proveedor/docente/personal, valor/monto/total/pago, medio/banco/metodo, categoria/tipo, detalle/descripcion, estado.</p>
+        </div>
+
+        <div class="card">
+          <div class="cardHead">
+            <div>
+              <h3>Revisión mensual</h3>
+              <p class="muted tiny">Si el egreso ya existe en Flujo de Caja aparece como pagado; si no, queda pendiente.</p>
+            </div>
+            <div class="filters">
+              <label>Desde<input id="egFrom" type="date"></label>
+              <label>Hasta<input id="egTo" type="date"></label>
+              <label>Origen<select id="egOrigen"><option value="">Todos los orígenes</option></select></label>
+              <label>Estado<select id="egEstado"><option value="">Todos</option><option>Pagado</option><option>Pendiente</option><option>No aplica</option></select></label>
+              <label>Buscar<input id="egQ" placeholder="Proveedor, categoría, detalle..."></label>
+            </div>
+          </div>
+          <div class="kpis miniKpis">
+            <article><span>Total esperado</span><strong id="egKpiTotal">$0</strong></article>
+            <article><span>Pendiente</span><strong id="egKpiPending">$0</strong></article>
+            <article><span>Pagado</span><strong id="egKpiPaid">$0</strong></article>
+            <article><span>Registros</span><strong id="egKpiCount">0</strong></article>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="tableWrap">
+            <table>
+              <thead><tr><th>Estado</th><th>Vencimiento</th><th>Proveedor</th><th>Categoría</th><th class="num">Valor</th><th>Medio</th><th>Origen</th><th>Match flujo</th><th>Acciones</th></tr></thead>
+              <tbody id="egBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <section id="view-subir-bancos" class="view">
         <div class="bankGrid">
           <div>
@@ -251,8 +307,8 @@
 
       <section id="view-subir-extractos" class="view">
         <div class="card">
-          <div class="cardHead"><div><h2>Subir extractos PDF / texto</h2><p class="muted">Extrae movimientos desde PDF y los guarda en la colección de Extractos, no en Flujo de Caja.</p></div></div>
-          <div class="controlsPro"><label>Banco / fuente<input id="pdfBank" placeholder="Bancolombia, Davivienda..."></label><label>Archivo PDF<input id="pdfFile" type="file" accept=".pdf,.txt"></label><button id="btnReadPdf" class="btn primary">Leer extracto</button><button id="btnSavePdfTx" class="btn ghost" disabled>Guardar en Extractos</button></div>
+          <div class="cardHead"><div><h2>Subir extractos PDF / texto</h2><p class="muted">Detecta el resumen general y los movimientos para guardarlos separados del Flujo de Caja.</p></div></div>
+          <div class="controlsPro"><label>Banco / fuente<input id="pdfBank" placeholder="Bancolombia, Davivienda..."></label><label>Archivo PDF<input id="pdfFile" type="file" accept=".pdf,.txt"></label><button id="btnReadPdf" class="btn primary">Leer extracto</button><button id="btnSavePdfTx" class="btn ghost" disabled>Guardar resumen y movimientos</button></div>
           <textarea id="pdfText" rows="7" placeholder="También puedes pegar aquí texto del extracto..."></textarea>
           <div class="actionsBar"><button id="btnParseText" class="btn primary">Detectar movimientos desde texto</button><button id="btnClearPdf" class="btn ghost">Limpiar</button></div>
           <pre id="pdfLog" class="log">Esperando extracto...</pre>
@@ -266,7 +322,16 @@
       </section>
 
       <section id="view-reglas" class="view">
-        <div class="card"><h2>Reglas Firestore</h2><p class="muted">Incluye Flujo, importaciones y Extractos. RIP usa su propio proyecto y reglas.</p><pre id="rulesBox" class="code"></pre></div>
+        <div class="card">
+          <h2>Configuración de accesos</h2>
+          <p class="muted">Usuarios permitidos, páginas visibles y permisos. Solo Alek y Catalina pueden editar.</p>
+          <div class="controlsPro">
+            <button id="btnAddAccessUser" class="btn ghost" type="button">Agregar usuario</button>
+            <button id="btnSaveAccess" class="btn primary" type="button">Guardar accesos</button>
+          </div>
+          <div id="accessBody" class="accessList"></div>
+        </div>
+        <div class="card"><h2>Reglas Firestore</h2><p class="muted">Copia estas reglas en Firebase cuando cambien los accesos. RIP usa su propio proyecto y reglas.</p><pre id="rulesBox" class="code"></pre></div>
       </section>
 
       <section id="view-conciliacion" class="view">
@@ -469,6 +534,22 @@
       <label>ID Ref<input id="editRef"></label>
       <label class="wide">Observaciones<textarea id="editObs" rows="3"></textarea></label>
       <div class="formActions wide"><button class="btn primary" id="btnSaveEdit" value="default">Guardar</button><button class="btn ghost" value="cancel">Cancelar</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="egEditDialog">
+    <form method="dialog" id="egEditForm" class="modalForm">
+      <h2 id="egEditTitle">Egreso esperado</h2>
+      <input type="hidden" id="egEditId">
+      <label>Vencimiento<input id="egEditVencimiento" type="date"></label>
+      <label>Proveedor / docente<input id="egEditProveedor"></label>
+      <label>Categoría<input id="egEditCategoria"></label>
+      <label>Valor<input id="egEditValor" type="number" step="0.01"></label>
+      <label>Medio / banco<input id="egEditMedio"></label>
+      <label>Origen<input id="egEditOrigen" placeholder="Proveedor o Nómina"></label>
+      <label>Estado manual<select id="egEditEstado"><option value="">Automático</option><option>Pendiente</option><option>Pagado</option><option>No aplica</option><option>Inactivo</option></select></label>
+      <label class="wide">Detalle<textarea id="egEditDetalle" rows="3"></textarea></label>
+      <div class="formActions wide"><button class="btn primary" value="default">Guardar</button><button class="btn ghost" value="cancel">Cancelar</button></div>
     </form>
   </dialog>
   <div id="toast" class="toast hidden"></div>
