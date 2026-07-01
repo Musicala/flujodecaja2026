@@ -19,6 +19,7 @@ const CONFIG_ADMINS = new Set(['alekcaballeromusic@gmail.com','catalina.medina.l
 const DEFAULT_ACCESS_USERS={
   'alekcaballeromusic@gmail.com':{name:'Alek Caballero',role:'admin',active:true,pages:['all']},
   'catalina.medina.leal@gmail.com':{name:'Catalina Medina',role:'admin',active:true,pages:['all']},
+  'adminmusicala@gmail.com':{name:'Camila Rodriguez',role:'admin',active:true,pages:['all']},
   'cpsoraya@gmail.com':{name:'Soraya',role:'accountant',active:true,pages:['flujo','facturacion','conciliacion']},
   'cpsoraya@inplementar.com':{name:'Soraya Implementar',role:'accountant',active:true,pages:['flujo','facturacion','conciliacion']},
   'espana.carlos@inplementar.com':{name:'Carlos España',role:'accountant',active:true,pages:['flujo','facturacion','conciliacion']},
