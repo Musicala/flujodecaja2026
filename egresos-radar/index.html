@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="es-CO">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Radar de Pagos Musicala</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#f7f8fc" />
+  <link rel="stylesheet" href="./style.css?v=3" />
+</head>
+<body>
+  <a class="skip" href="#main">Saltar al contenido</a>
+
+  <header class="site-header">
+    <div class="wrap header-row">
+      <div class="titleblock">
+        <h1>Radar de Pagos Musicala</h1>
+        <p class="subtitle">Obligaciones, pendientes, movimientos y reportes de egresos reales.</p>
+        <div class="statusline" id="statusline" aria-live="polite"></div>
+      </div>
+      <div class="header-actions">
+        <div class="muted small" id="user-label"></div>
+        <button class="btn ghost" id="btn-login" type="button">Entrar con Google</button>
+        <button class="btn ghost hidden" id="btn-logout" type="button">Salir</button>
+        <button class="btn primary" id="btn-new" type="button">Nuevo egreso</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="wrap">
+    <section class="card">
+      <div class="card-head">
+        <h2 class="h2">Vista</h2>
+        <div class="muted small">Datos en tiempo real desde Firebase.</div>
+      </div>
+      <nav class="section-tabs" role="tablist" aria-label="Secciones">
+        <button class="tab" role="tab" aria-selected="true" data-tab="dashboard" type="button">Dashboard</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="pendientes" type="button">Pendientes</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="egresos" type="button">Movimientos</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="conciliacion" type="button">Conciliación</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="nomina" type="button">Nómina</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="proveedores" type="button">Proveedores</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="gastos-fijos" type="button">Gastos fijos</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="gastos-variables" type="button">Gastos variables</button>
+      </nav>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2 class="h2">Mes</h2>
+        <div class="muted small">La app abre en el mes activo.</div>
+      </div>
+      <nav id="month-menu" class="month-grid" aria-label="Seleccionar mes"></nav>
+    </section>
+
+    <section class="card">
+      <div class="filters">
+        <select id="filter-estado" aria-label="Filtrar estado"></select>
+        <select id="filter-tipo" aria-label="Filtrar tipo"></select>
+        <select id="filter-fuente" aria-label="Filtrar fuente"></select>
+        <input id="filter-persona" placeholder="Persona" />
+        <input id="filter-q" placeholder="Buscar texto" />
+        <button class="btn" id="btn-clear-filters" type="button">Limpiar</button>
+      </div>
+    </section>
+
+    <section id="tab-dashboard" class="card month-content" aria-live="polite"></section>
+    <section id="tab-pendientes" class="card month-content hidden" aria-live="polite"></section>
+    <section id="tab-egresos" class="card month-content hidden" aria-live="polite"></section>
+    <section id="tab-conciliacion" class="card month-content hidden" aria-live="polite"></section>
+    <section id="tab-nomina" class="card month-content hidden" aria-live="polite"></section>
+    <section id="tab-proveedores" class="card month-content hidden" aria-live="polite"></section>
+    <section id="tab-gastos-fijos" class="card month-content hidden" aria-live="polite"></section>
+    <section id="tab-gastos-variables" class="card month-content hidden" aria-live="polite"></section>
+  </main>
+
+  <datalist id="categorias-list"></datalist>
+  <datalist id="subcategorias-list"></datalist>
+  <datalist id="equipo-list"></datalist>
+  <datalist id="medios-pago-list"></datalist>
+  <datalist id="proyectos-list"></datalist>
+  <datalist id="proveedores-list"></datalist>
+
+  <div class="modal-backdrop" id="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal">
+      <header>
+        <div>
+          <div class="modal-title" id="modal-title">Egreso</div>
+          <div class="muted small" id="modal-subtitle">Firestore: seguimiento_egresos</div>
+        </div>
+        <button class="close-x" id="btn-cerrar" aria-label="Cerrar">×</button>
+      </header>
+      <main>
+        <form id="form-egreso" class="form-grid">
+          <input type="hidden" name="id" />
+          <div class="field medium"><label>Periodo</label><input name="periodo" required /></div>
+          <div class="field medium"><label>Estado</label><select name="estado" required></select></div>
+          <div class="field medium"><label>Tipo</label><select name="tipo"></select></div>
+          <div class="field medium"><label>Fuente</label><select name="fuente"></select></div>
+          <div class="field medium"><label>Persona / equipo</label><input name="persona" list="equipo-list" placeholder="Ej. Angie Rodríguez" /></div>
+          <div class="field medium"><label>Proveedor</label><input name="proveedor" list="proveedores-list" placeholder="Ej. Movistar" /></div>
+          <div class="field full"><label>Concepto</label><input name="concepto" required /></div>
+          <div class="field medium"><label>Categoría</label><input name="categoria" list="categorias-list" /></div>
+          <div class="field medium"><label>Subcategoría</label><input name="subcategoria" list="subcategorias-list" /></div>
+          <div class="field medium"><label>Proyecto</label><input name="proyecto" list="proyectos-list" placeholder="Musicala" /></div>
+          <div class="field medium"><label>Rango</label><input name="rango" /></div>
+          <div class="field medium"><label>Prioridad</label><select name="prioridad"><option>baja</option><option selected>media</option><option>alta</option></select></div>
+          <div class="field medium"><label>Valor calculado</label><input name="valorCalculado" type="number" min="0" step="1" /></div>
+          <div class="field medium"><label>Valor aprobado</label><input name="valorAprobado" type="number" min="0" step="1" /></div>
+          <div class="field medium"><label>Valor pagado</label><input name="valorPagado" type="number" min="0" step="1" /></div>
+          <div class="field medium"><label>Vencimiento</label><input name="fechaVencimiento" type="date" /></div>
+          <div class="field medium"><label>Fecha pago</label><input name="fechaPago" type="date" /></div>
+          <div class="field medium"><label>Medio pago</label><input name="medioPago" list="medios-pago-list" /></div>
+          <div class="field medium"><label>Referencia</label><input name="referenciaPago" /></div>
+          <div class="field full"><label>Soporte URL</label><input name="soporteUrl" type="url" /></div>
+          <div class="field full"><label>Observaciones</label><textarea name="observaciones"></textarea></div>
+        </form>
+      </main>
+      <footer>
+        <button class="btn" id="btn-cancelar" type="button">Cancelar</button>
+        <button class="btn primary" id="btn-guardar" type="submit" form="form-egreso">Guardar</button>
+      </footer>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="especial-backdrop" role="dialog" aria-modal="true" aria-labelledby="especial-title">
+    <div class="modal">
+      <header>
+        <div>
+          <div class="modal-title" id="especial-title">Registro especial</div>
+          <div class="muted small">Firestore: seguimiento_egresos_especial</div>
+        </div>
+        <button class="close-x" id="btn-cerrar-especial" aria-label="Cerrar">×</button>
+      </header>
+      <main>
+        <form id="form-especial" class="form-grid">
+          <input type="hidden" name="id" />
+          <div class="field medium"><label>Tipo registro</label>
+            <select name="tipoRegistro">
+              <option value="categoria">Categoría</option>
+              <option value="gasto_fijo">Gasto fijo</option>
+              <option value="gasto_variable">Gasto variable</option>
+              <option value="proveedor">Proveedor</option>
+              <option value="movimiento">Movimiento</option>
+              <option value="equipo_directo">Equipo directo</option>
+              <option value="medio_pago">Medio de pago</option>
+              <option value="proyecto">Proyecto</option>
+            </select>
+          </div>
+          <div class="field medium"><label>Orden</label><input name="ordenGlobal" type="number" min="0" step="1" /></div>
+          <div class="field medium"><label>Activo</label><select name="activo"><option value="true">Sí</option><option value="false">No</option></select></div>
+          <div class="field full"><label>Nombre</label><input name="nombre" required /></div>
+          <div class="field medium"><label>Categoría</label><input name="categoria" list="categorias-list" /></div>
+          <div class="field medium"><label>Subcategoría</label><input name="subcategoria" list="subcategorias-list" /></div>
+          <div class="field medium"><label>Proveedor</label><input name="proveedor" list="proveedores-list" /></div>
+          <div class="field medium"><label>Concepto</label><input name="concepto" /></div>
+          <div class="field medium"><label>Frecuencia</label><input name="frecuencia" /></div>
+          <div class="field medium"><label>Automático</label><select name="automatico"><option value="false">No</option><option value="true">Sí</option></select></div>
+          <div class="field medium"><label>Cuenta bancaria</label><input name="cuentaBancaria" list="medios-pago-list" /></div>
+          <div class="field medium"><label>Día sugerido</label><input name="diaSugerido" type="number" min="1" max="31" /></div>
+          <div class="field medium"><label>Periodo</label><input name="periodo" placeholder="2026-01" /></div>
+          <div class="field medium"><label>Valor sugerido</label><input name="valorSugerido" type="number" min="0" step="1" /></div>
+          <div class="field medium"><label>Valor cuenta cobro</label><input name="valorCuentaCobro" type="number" min="0" step="1" /></div>
+          <div class="field medium"><label>Valor final</label><input name="valorFinal" type="number" min="0" step="1" /></div>
+          <div class="field medium"><label>Proyecto</label><input name="proyecto" list="proyectos-list" /></div>
+          <div class="field full"><label>Observaciones</label><textarea name="observaciones"></textarea></div>
+        </form>
+      </main>
+      <footer>
+        <button class="btn" id="btn-cancelar-especial" type="button">Cancelar</button>
+        <button class="btn primary" type="submit" form="form-especial">Guardar</button>
+      </footer>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="pay-backdrop" role="dialog" aria-modal="true" aria-labelledby="pay-title">
+    <div class="modal">
+      <header>
+        <div>
+          <div class="modal-title" id="pay-title">Registrar pago</div>
+          <div class="muted small" id="pay-subtitle"></div>
+        </div>
+        <button class="close-x" id="btn-cerrar-pay" aria-label="Cerrar">×</button>
+      </header>
+      <main>
+        <form id="form-pago" class="form-grid">
+          <input type="hidden" name="egresoId" />
+          <div class="field medium"><label>Fecha pago</label><input name="fechaPago" type="date" required /></div>
+          <div class="field medium"><label>Valor</label><input name="valor" type="number" min="1" step="1" required /></div>
+          <div class="field medium"><label>Medio pago</label><input name="medioPago" list="medios-pago-list" /></div>
+          <div class="field medium"><label>Referencia</label><input name="referenciaPago" /></div>
+          <div class="field full"><label>Soporte URL</label><input name="soporteUrl" type="url" /></div>
+          <div class="field full"><label>Observaciones</label><textarea name="observaciones"></textarea></div>
+        </form>
+      </main>
+      <footer>
+        <button class="btn" id="btn-cancelar-pay" type="button">Cancelar</button>
+        <button class="btn primary" type="submit" form="form-pago">Guardar pago</button>
+      </footer>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="wrap">Musicala · Radar de pagos · Firebase</div>
+  </footer>
+
+  <script type="module" src="./app.js?v=9"></script>
+</body>
+</html>
