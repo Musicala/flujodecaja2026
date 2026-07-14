@@ -43,6 +43,15 @@ service cloud.firestore {
     match /flujo_caja_egresos_esperados/{docId} {
       allow read, create, update, delete: if isAdmin();
     }
+    match /seguimiento_egresos/{docId} {
+      allow read, create, update, delete: if isAdmin();
+      match /pagos/{pagoId} {
+        allow read, create, update, delete: if isAdmin();
+      }
+    }
+    match /seguimiento_egresos_especial/{docId} {
+      allow read, create, update, delete: if isAdmin();
+    }
     match /flujo_caja_config/{docId} {
       allow read: if hasAccess();
       allow create, update, delete: if isConfigAdmin();

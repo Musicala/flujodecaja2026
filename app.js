@@ -19,7 +19,6 @@ const CONFIG_ADMINS = new Set(['alekcaballeromusic@gmail.com','catalina.medina.l
 const DEFAULT_ACCESS_USERS={
   'alekcaballeromusic@gmail.com':{name:'Alek Caballero',role:'admin',active:true,pages:['all']},
   'catalina.medina.leal@gmail.com':{name:'Catalina Medina',role:'admin',active:true,pages:['all']},
-  'adminmusicala@gmail.com':{name:'Camila Rodriguez',role:'admin',active:true,pages:['all']},
   'cpsoraya@gmail.com':{name:'Soraya',role:'accountant',active:true,pages:['flujo','facturacion','conciliacion']},
   'cpsoraya@inplementar.com':{name:'Soraya Implementar',role:'accountant',active:true,pages:['flujo','facturacion','conciliacion']},
   'espana.carlos@inplementar.com':{name:'Carlos España',role:'accountant',active:true,pages:['flujo','facturacion','conciliacion']},
@@ -28,6 +27,7 @@ const DEFAULT_ACCESS_USERS={
 };
 const PAGE_LABELS={inicio:'Inicio visual',flujo:'Flujo de Caja',rip:'RIP',extractos:'Extractos',egresos:'Egresos','subir-bancos':'Subir bancos','subir-extractos':'Subir extractos',calendario:'Calendario',reglas:'Reglas',facturacion:'Facturación',conciliacion:'Conciliación'};
 const ACCESS_PAGES=Object.keys(PAGE_LABELS).filter(p=>p!=='reglas');
+const VIEW_KEY='flujo_caja_active_view';
 let accessUsers={...DEFAULT_ACCESS_USERS};
 let currentRole='blocked';
 let currentPages=new Set();
@@ -98,7 +98,8 @@ async function saveAccessConfig(){if(!isConfigAdminEmail())return toast('Solo Al
 function setCurrentAccess(email){const cfg=accessFor(email); currentRole=CONFIG_ADMINS.has(email)?'admin':cfg?.active?cfg.role||'accountant':'blocked'; currentPages=new Set(currentRole==='admin'?['all']:(cfg?.pages||[]));}
 function applyRoleUi(){const readOnly=currentRole!=='admin'; $$('.tab[data-view]').forEach(b=>b.classList.toggle('hidden',!userCanSee(b.dataset.view))); ['btnAutoCat','btnReCat','btnSinCat'].forEach(id=>$('#'+id)?.classList.toggle('hidden',readOnly));}
 function showApp(ok){$('#app').classList.toggle('hidden',!ok); $('#blocked').classList.toggle('hidden',ok); if(ok){applyRoleUi(); renderMonthBar();}}
-function showView(name){if(!userCanSee(name))name=[...currentPages][0]||'flujo'; $$('.tab[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name)); $$('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${name}`)); if(name==='calendario')renderCalendar(); if(name==='rip')renderRipAll(); if(name==='extractos')renderExtractAll(); if(name==='egresos')renderExpectedExpenses(); if(name==='facturacion')bilRender(); if(name==='conciliacion')renderReconciliation(filteredRip,allTx); if(name==='reglas')renderAccessConfig(); if(name==='flujo'){renderFlowSummary(); applyTxFilters(true); if(ripRows.length)renderReconciliation(filteredRip,allTx);}}
+function showView(name){if(!userCanSee(name))name=[...currentPages][0]||'flujo'; try{localStorage.setItem(VIEW_KEY,name)}catch{} $$('.tab[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name)); $$('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${name}`)); if(name==='calendario')renderCalendar(); if(name==='rip')renderRipAll(); if(name==='extractos')renderExtractAll(); if(name==='egresos')renderExpectedExpenses(); if(name==='facturacion')bilRender(); if(name==='conciliacion')renderReconciliation(filteredRip,allTx); if(name==='reglas')renderAccessConfig(); if(name==='flujo'){renderFlowSummary(); applyTxFilters(true); if(ripRows.length)renderReconciliation(filteredRip,allTx);}}
+function restoreView(){let view='inicio'; try{view=localStorage.getItem(VIEW_KEY)||view}catch{} showView(view)}
 function pageChip(page,pages,disabled){return `<button class="accessChip ${pages.includes(page)||pages.includes('all')?'active':''}" data-page="${esc(page)}" type="button"${disabled?' disabled':''}>${esc(PAGE_LABELS[page])}</button>`}
 function renderAccessConfig(){const body=$('#accessBody'), canEdit=isConfigAdminEmail(); if(body)body.innerHTML=Object.entries(accessUsers).sort(([a],[b])=>a.localeCompare(b)).map(([email,u])=>{const pages=u.pages||[]; return `<div class="accessCard"><div class="accessTop"><div class="accessName"><label>Nombre<input data-access-name value="${esc(u.name||'')}"></label><label>Correo<input data-access-email value="${esc(email)}"></label><label>Rol<select data-access-role><option value="admin"${u.role==='admin'?' selected':''}>Admin</option><option value="accountant"${u.role!=='admin'?' selected':''}>Contabilidad</option></select></label></div><label class="accessActive"><input type="checkbox" data-access-active ${u.active!==false?'checked':''}> Activo</label></div><div class="accessTools"><button class="mini" data-mark-all type="button">Marcar todos</button><button class="mini" data-clear-pages type="button">Quitar todos</button><button class="mini" data-invert-pages type="button">Invertir</button></div><div class="accessPages">${ACCESS_PAGES.map(p=>pageChip(p,pages,!canEdit)).join('')}</div><span class="accessMeta">${u.role==='admin'?'Puede leer y escribir según reglas.':'Lectura en Flujo; edición solo si reglas/rol lo permiten.'}</span></div>`}).join(''); if($('#rulesBox'))$('#rulesBox').textContent=RULES; $('#btnSaveAccess')?.classList.toggle('hidden',!canEdit); $('#btnAddAccessUser')?.classList.toggle('hidden',!canEdit);}
 function hash(s){let h=2166136261; for(let i=0;i<s.length;i++){h^=s.charCodeAt(i); h=Math.imul(h,16777619)} return (h>>>0).toString(36)}
@@ -176,7 +177,7 @@ function exportCSV(){const head=['fecha','tipo','descripcion','monto','metodo','
 const CATEGORIES=['','Acueducto','Arrendamiento','Aseo','CCB','ChatGPT','Clases B2B','Clases B2C','Comisiones de email','Comisiones de pago','Comisión Bold','Comisión Nequi','Contabilidad','Cuota de manejo Bancolombia','Cuota de manejo Davivienda','Diseño y publicidad','Docentes Musicala Hogar','Dotación','Enel Codensa','Facebook','Google Ads','Impuesto 4x1000','Impuesto ICA','Impuesto IVA','Impuesto Retefuente','Impuesto Reteica','Instrumentos y equipos','Intereses','Internet Movistar','Keybe','Miplanilla','Musicafé','Nómina','Otros gastos (especifique)','Pago Proveedores','Préstamo socios','Reparaciones y mantenimiento','SG SST','Salarios Docentes prestación','Seguros','Tarjeta de crédito','Transferencia Musicala','Vigilancia'];
 const CAT_RULES=[[/TRANSACCI[Ã"O]N\s*BOLD/i,'Clases B2C'],[/RETEICA\s*BOLD/i,'Impuesto Reteica'],[/RETEFUENTE\s*BOLD/i,'Impuesto Retefuente'],[/RETEIVA\s*BOLD/i,'Impuesto IVA'],[/COMISI[Ã"O]N\s*BOLD/i,'Comisión Bold'],[/PAGO\s+DE\s+PROV\s+BOLD|PAGO\s+INTERBANC\s+BOLD/i,'Transferencia Musicala'],[/COMISI[Ã"O]N\s+E-?MAILS?|SERVICIO\s+E-?MAILS?|E-?MAILS?\s+ENVIADOS/i,'Comisiones de email'],[/TRANSFERENCIA\s+CTA\s+SUC\s+VIRTUAL|TRANSFERENCIA\s+DESDE\s+NEQUI/i,'Clases B2C'],[/PAGO\s+A\s+NOMIN|PAGO\s+A\s+NÃ"MIN/i,'Nómina'],[/IMPTO\s+GOBIERNO\s+4X1000|\b4X1000\b|GRAVAMEN|GMF/i,'Impuesto 4x1000'],[/COBRO\s+PAGO\s+PROVEEDORES|COMISION\s+PAGO|SERVICIO\s+PAGO\s+A\s+PROVEEDORES/i,'Comisiones de pago'],[/COMISION\s+POR\s+PAGOS\s+A\s+NEQUI/i,'Comisión Nequi'],[/MIPLANILLA|COMPENSAR/i,'Miplanilla'],[/OPENAI|CHATGPT/i,'ChatGPT'],[/GOOGLE\s+ADS/i,'Google Ads'],[/KEYBE/i,'Keybe'],[/CUOTA\s*MANEJO.*BANCOLOMBIA/i,'Cuota de manejo Bancolombia'],[/COBRO\s*SERVICIO\s*EMPRESARIAL|CUOTA\s*MANEJO.*DAVIVIENDA/i,'Cuota de manejo Davivienda'],[/\bIVA\b|IMPTOS?\s+A\s+LAS\s+VENTAS/i,'Impuesto IVA'],[/RETE\s*ICA|RETEICA|RTE\s*ICA/i,'Impuesto Reteica'],[/RETE\s*FUENTE|RETEFUENTE|RTE\s*FUENTE/i,'Impuesto Retefuente'],[/INTERESES/i,'Intereses'],[/PSE|PAYU|WOMPI|EPAYCO|MERCADOPAGO|COMISI[Ã"O]N/i,'Comisiones de pago']];
 function suggestCategory(r){for(const [re,cat] of CAT_RULES){if(cat==='Comisión Bold'&&!/BOLD/i.test(r.metodo))continue; if(cat==='Clases B2C'&&r.tipo==='Egreso')continue; if(re.test(r.descripcion||''))return cat} if(/BOLD/i.test(r.metodo)&&r.tipo==='Ingreso')return 'Clases B2C'; if(r.tipo==='Ingreso'&&Number(r.monto||0)>5000&&!isTransferMusicala(r))return 'Clases B2C'; return ''}
-function parseMoneyAny(v){if(typeof v==='number')return v; let s=String(v??'').replace(/\$/g,'').replace(/\s+/g,''); if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.'); else if(s.includes(','))s=s.replace(',','.'); const n=Number(s.replace(/[^0-9.+-]/g,'')); return Number.isFinite(n)?n:NaN}
+function parseMoneyAny(v){if(typeof v==='number')return v; let s=String(v??'').replace(/\$/g,'').replace(/\s+/g,''); if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.'); else if(/^-?\d{1,3}(?:\.\d{3})+$/.test(s))s=s.replace(/\./g,''); else if(s.includes(','))s=s.replace(',','.'); const n=Number(s.replace(/[^0-9.+-]/g,'')); return Number.isFinite(n)?n:NaN}
 function toISODateFromDMY(d){const m=String(d).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:''}
 function toISODateFromYYYYMMDD(s){const m=String(s??'').trim().match(/^(\d{4})(\d{2})(\d{2})$/); return m?`${m[1]}-${m[2]}-${m[3]}`:''}
 function detectDelimiter(text){const line=(text||'').split(/\r?\n/).find(l=>l.trim()); if(!line)return ','; const c=(line.match(/,/g)||[]).length,se=(line.match(/;/g)||[]).length,t=(line.match(/\t/g)||[]).length; return t>c&&t>se?'\t':se>c?';':','}
@@ -420,9 +421,12 @@ function extractBoldSaldos(rows,isBoldCF=false){
 function extractGenericSaldos(text,banco){
   const ant=text.match(/(?:SALDO\s+ANTERIOR|SALDO\s+INICIAL)\s*:?\s*\$?\s*([\d.,]+)/i);
   const fin=text.match(/(?:SALDO\s+FINAL|SALDO\s+NUEVO|SALDO\s+ACTUAL)\s*:?\s*\$?\s*([\d.,]+)/i);
+  const ingresos=text.match(/(?:TOTAL\s+)?(?:INGRESOS|ABONOS|CREDITOS|CR[EÉ]DITOS)\s*:?\s*\$?\s*([\d.,]+)/i);
+  const egresos=text.match(/(?:TOTAL\s+)?(?:EGRESOS|CARGOS|DEBITOS|D[EÉ]BITOS|RETIROS)\s*:?\s*\$?\s*([\d.,]+)/i);
+  const movimientos=text.match(/(?:N[UÚ]MERO|CANTIDAD|TOTAL)\s+(?:DE\s+)?MOVIMIENTOS\s*:?\s*(\d+)/i);
   return {
     saldoInicial:ant?parseMoneyAny(ant[1]):null,
-    saldoFinal:fin?parseMoneyAny(fin[1]):null,ingresos:null,egresos:null,movimientos:null,cuenta:'',
+    saldoFinal:fin?parseMoneyAny(fin[1]):null,ingresos:ingresos?parseMoneyAny(ingresos[1]):null,egresos:egresos?parseMoneyAny(egresos[1]):null,movimientos:movimientos?Number(movimientos[1]):null,cuenta:'',
     banco:banco||'Extracto',
     desde:'',hasta:'',esProcesadorPago:false
   };
@@ -444,7 +448,7 @@ function renderSaldoCheck(rows,meta,containerId){
       ${saldoInicial!==null?`<span>Saldo inicial extracto</span><strong>${fmtCOP(saldoInicial)}</strong>`:''}
       <span>+ Ingresos ${meta.ingresos!=null?'del extracto':'detectados'}</span><strong class="good">+${fmtCOP(ingresos)}</strong>
       <span>- Egresos ${meta.egresos!=null?'del extracto':'detectados'}</span><strong class="bad">-${fmtCOP(egresos)}</strong>
-      <span># Movimientos detectados</span><strong>${fmtNum(rows.length)}</strong>
+      <span># Movimientos ${meta.movimientos!=null?'del extracto':'detectados'}</span><strong>${fmtNum(meta.movimientos??rows.length)}</strong>
       <span>= Saldo calculado</span><strong>${fmtCOP(calculado)}</strong>
       ${saldoFinal!==null?`<span>${esProcesadorPago?'Total depositado (extracto)':'Saldo final extracto'}</span><strong>${fmtCOP(saldoFinal)}</strong>`:''}
       ${diff!==null?`<span class="saldoDiffLabel">Diferencia</span><strong class="${ok?'good':'bad'}">${ok?'✔ Cuadra perfectamente':fmtCOP(Math.abs(diff))+' de diferencia'}</strong>`:''}
@@ -528,35 +532,94 @@ function parseBancolombiaPdfText(text){
   return result;
 }
 
+const PDF_ACCOUNTS=['Bold CF','Davivienda','Bancolombia'];
+function resetPdfMeta(){pdfTx=[]; pdfMeta={saldoInicial:null,saldoFinal:null,ingresos:null,egresos:null,movimientos:null,cuenta:'',banco:'',desde:'',hasta:'',esProcesadorPago:false};}
+function detectPdfAccount(text,manual=''){
+  if(PDF_ACCOUNTS.includes(manual))return manual;
+  const t=plain(text||'');
+  if(/\bbold\s+cf\b/i.test(text||'')||/\bbold\s+cf\b/i.test(t))return 'Bold CF';
+  if(/davivienda/i.test(text||''))return 'Davivienda';
+  if(/bancolombia/i.test(text||''))return 'Bancolombia';
+  return '';
+}
+function inferMonthFromMeta(meta){
+  if(meta?.desde)return monthKey(meta.desde);
+  if(meta?.hasta)return monthKey(meta.hasta);
+  return '';
+}
+function normalizePdfMetaFromInputs(){
+  const account=$('#pdfAccount')?.value||pdfMeta.banco||'';
+  const month=$('#pdfMonth')?.value||inferMonthFromMeta(pdfMeta);
+  const last=month?new Date(+month.slice(0,4),+month.slice(5,7),0).getDate():0;
+  const moneyInput=id=>{const v=$('#'+id)?.value; if(v===''||v==null)return null; const n=parseMoneyAny(v); return Number.isFinite(n)?Math.abs(n):null;};
+  const intInput=id=>{const v=$('#'+id)?.value; if(v===''||v==null)return null; const n=parseInt(String(v).replace(/[^\d-]/g,''),10); return Number.isFinite(n)?Math.max(0,n):null;};
+  pdfMeta={...pdfMeta,
+    banco:account,
+    saldoInicial:moneyInput('pdfSaldoInicial'),
+    ingresos:moneyInput('pdfIngresos'),
+    egresos:moneyInput('pdfEgresos'),
+    saldoFinal:moneyInput('pdfSaldoFinal'),
+    movimientos:intInput('pdfMovimientos'),
+    desde:month?`${month}-01`:pdfMeta.desde||'',
+    hasta:month&&last?`${month}-${String(last).padStart(2,'0')}`:pdfMeta.hasta||''
+  };
+  return pdfMeta;
+}
+function fillPdfSummaryForm(){
+  const account=detectPdfAccount($('#pdfText')?.value||'',pdfMeta.banco);
+  if($('#pdfAccount'))$('#pdfAccount').value=PDF_ACCOUNTS.includes(account)?account:'';
+  if($('#pdfMonth'))$('#pdfMonth').value=inferMonthFromMeta(pdfMeta)||'';
+  const setMoney=(id,v)=>{const el=$('#'+id); if(el)el.value=v==null?'':Math.round(Number(v));};
+  setMoney('pdfSaldoInicial',pdfMeta.saldoInicial);
+  setMoney('pdfIngresos',pdfMeta.ingresos);
+  setMoney('pdfEgresos',pdfMeta.egresos);
+  setMoney('pdfSaldoFinal',pdfMeta.saldoFinal);
+  if($('#pdfMovimientos'))$('#pdfMovimientos').value=pdfMeta.movimientos??'';
+  normalizePdfMetaFromInputs();
+}
+function extractPdfSummary(text){
+  const manual=$('#pdfAccount')?.value||'';
+  const account=detectPdfAccount(text,manual);
+  let meta;
+  if(account==='Bancolombia')meta=extractBancolombiaSaldos(text);
+  else if(account==='Davivienda'||/Saldo\s*Anterior/i.test(text)&&/M[aá]s\s*Cr[eé]ditos/i.test(text))meta=extractDaviviendaPdfMeta(text);
+  else meta=extractGenericSaldos(text,account||manual||'');
+  const movimientos=text.match(/(?:n[uú]mero|cantidad|total)\s+(?:de\s+)?movimientos\s*:?\s*(\d+)/i)||text.match(/movimientos\s*:?\s*(\d+)/i);
+  if(movimientos)meta.movimientos=Number(movimientos[1]);
+  meta.banco=account||meta.banco||manual||'';
+  if(meta.banco==='Bold')meta.banco='';
+  return meta;
+}
 function parsePdfText(){
   const text=$('#pdfText').value||'';
-  const bank=norm($('#pdfBank').value)||'Extracto';
-  // Detección automática de extracto Bancolombia (formato D/MM sin año)
-  if(/ESTADO\s+DE\s+CUENTA/i.test(text)&&/ABONO\s+INTERESES\s+AHORROS|BANCOLOMBIA/i.test(text)&&/DESDE:|HASTA:/i.test(text)){
-    pdfTx=parseBancolombiaPdfText(text); // pdfMeta se setea adentro
-    renderPdfPreview();
-    $('#pdfLog').textContent=`Extracto Bancolombia detectado: ${pdfTx.length} movimientos. Revisa antes de guardar.`;
-    return;
-  }
-  pdfMeta=/Saldo\s*Anterior/i.test(text)&&/M[aá]s\s*Cr[eé]ditos/i.test(text)?extractDaviviendaPdfMeta(text):extractGenericSaldos(text,bank);
-  const lines=text.split(/\r?\n|(?=\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/).map(norm).filter(Boolean); const tx=[]; const dateRe='(\\d{1,2}[\\/\\-]\\d{1,2}[\\/\\-]\\d{2,4}|\\d{4}[\\-\\/]\\d{1,2}[\\-\\/]\\d{1,2})'; const moneyRe='([+-]?\\$?\\s?\\d{1,3}(?:[.,]\\d{3})*(?:[.,]\\d{2})?|[+-]?\\d{4,})'; for(const line of lines){const m=line.match(new RegExp(dateRe+'.{0,120}?'+moneyRe,'i')); if(!m)continue; let fecha=''; const d=m[1].replaceAll('-','/'); if(/^\d{4}/.test(d)){const parts=d.split('/'); fecha=`${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`} else fecha=toISODateFromDMY(d.length===8?d.replace(/(\d{1,2})\/(\d{1,2})\/(\d{2})/,'$1/$2/20$3'):d); const amount=parseMoneyAny(m[2]); if(!fecha||!Number.isFinite(amount)||Math.abs(amount)<1000)continue; const tipo=(/abono|consignaci|transferencia recibida|credito|cr[eé]dito|ingreso/i.test(line)||amount>0&&!/compra|pago|retiro|debito|d[eé]bito/i.test(line))?'Ingreso':'Egreso'; const descripcion=line.replace(m[1],'').replace(m[2],'').slice(0,180); tx.push({fecha,tipo,descripcion:norm(descripcion)||line,monto:Math.abs(amount),metodo:bank,categoria:suggestCategory({descripcion:line,metodo:bank,tipo}),obs:'Extraído de PDF/texto',factura:'',ref:''})} pdfTx=tx.filter((v,i,a)=>a.findIndex(x=>extractIdFor(x)===extractIdFor(v))===i).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); renderPdfPreview(); $('#pdfLog').textContent=`Detectados ${pdfTx.length} posibles movimientos. Revisa antes de guardar, porque PDF no es oráculo.`}
+  resetPdfMeta();
+  pdfMeta=extractPdfSummary(text);
+  fillPdfSummaryForm();
+  renderPdfPreview();
+  const missing=['banco','desde','saldoInicial','ingresos','egresos','saldoFinal','movimientos'].filter(k=>pdfMeta[k]===''||pdfMeta[k]==null);
+  $('#pdfLog').textContent=missing.length?`Resumen detectado parcialmente. Completa manualmente: ${missing.join(', ')}.`:`Resumen detectado para ${pdfMeta.banco} (${monthLabel(monthKey(pdfMeta.desde))}).`;
+}
 function renderPdfPreview(){
-  const existing=new Set(extractRows.map(extractIdFor)); let ready=0,dup=0;
-  $('#pdfBody').innerHTML=pdfTx.map(r=>{const d=existing.has(extractIdFor(r)); if(d)dup++; else ready++; return `<tr class="${d?'isDup':'isOk'}"><td>${d?'Duplicado':'Listo'}</td><td>${esc(r.fecha)}</td><td>${esc(r.tipo)}</td><td>${esc(r.descripcion)}</td><td class="num">${fmtCOP(r.monto)}</td><td>${esc(r.metodo)}</td><td>${esc(r.categoria)}</td></tr>`}).join('')||'<tr><td colspan="7" class="muted">Sin movimientos detectados.</td></tr>';
-  pdfMeta.movimientos=pdfTx.length;
-  $('#btnSavePdfTx').disabled=ready===0&&pdfMeta.saldoInicial==null&&pdfMeta.saldoFinal==null;
-  renderSaldoCheck(pdfTx,pdfMeta,'#saldoCheckPdf');
+  normalizePdfMetaFromInputs();
+  const accountOk=PDF_ACCOUNTS.includes(pdfMeta.banco);
+  const month=monthKey(pdfMeta.desde);
+  const completeValues=[pdfMeta.saldoInicial,pdfMeta.ingresos,pdfMeta.egresos,pdfMeta.saldoFinal,pdfMeta.movimientos].every(v=>v!=null);
+  const ready=accountOk&&month&&completeValues;
+  const state=!accountOk?'Elige cuenta':!month?'Falta mes':!completeValues?'Completa valores':'Listo';
+  $('#pdfBody').innerHTML=`<tr class="${ready?'isOk':'isBad'}"><td><strong>${state}</strong></td><td>${esc(month?monthLabel(month):'')}</td><td>${esc(pdfMeta.banco||'')}</td><td class="num">${pdfMeta.saldoInicial==null?'':fmtCOP(pdfMeta.saldoInicial)}</td><td class="num good">${pdfMeta.ingresos==null?'':fmtCOP(pdfMeta.ingresos)}</td><td class="num bad">${pdfMeta.egresos==null?'':fmtCOP(pdfMeta.egresos)}</td><td class="num">${pdfMeta.saldoFinal==null?'':fmtCOP(pdfMeta.saldoFinal)}</td><td class="num">${pdfMeta.movimientos??''}</td></tr>`;
+  $('#btnSavePdfTx').disabled=!ready;
+  renderSaldoCheck([],pdfMeta,'#saldoCheckPdf');
 }
 async function savePdfTx(){
   const fileName=$('#pdfFile').files[0]?.name||'texto-pegado';
-  if(pdfTx.length) await commitRows(pdfTx,{source:'PDF/TEXTO',fileName,target:'extract',saldoMeta:pdfMeta});
-  else {
-    const id=`extract_summary_${Date.now()}_${hash(fileName)}`, calculado=(pdfMeta.saldoInicial??0)+(pdfMeta.ingresos??0)-(pdfMeta.egresos??0);
-    await setDoc(doc(db,IMPORTS,id),{source:'PDF/TEXTO',fileName,target:'extract-summary',saldoInicial:pdfMeta.saldoInicial,saldoFinal:pdfMeta.saldoFinal,totalIngresos:pdfMeta.ingresos,totalEgresos:pdfMeta.egresos,totalMovimientos:pdfMeta.movimientos??0,saldoCuenta:pdfMeta.cuenta||'',saldoBanco:pdfMeta.banco||'',saldoDesde:pdfMeta.desde||'',saldoHasta:pdfMeta.hasta||'',diferencia:pdfMeta.saldoFinal==null?null:Math.round(calculado-pdfMeta.saldoFinal),importedBy:auth.currentUser?.email||'',createdAt:serverTimestamp()},{merge:true});
-    toast('Resumen del extracto guardado');
-    await loadData();
-  }
-  pdfTx=[]; pdfMeta={saldoInicial:null,saldoFinal:null,ingresos:null,egresos:null,movimientos:null,cuenta:'',banco:'',desde:'',hasta:'',esProcesadorPago:false};
+  normalizePdfMetaFromInputs();
+  if(!PDF_ACCOUNTS.includes(pdfMeta.banco))return toast('Elige una cuenta valida: Bold CF, Davivienda o Bancolombia.');
+  const id=`extract_summary_${monthKey(pdfMeta.desde)}_${pdfMeta.banco.replace(/\s+/g,'_').toLowerCase()}_${hash(fileName)}`;
+  const calculado=(pdfMeta.saldoInicial??0)+(pdfMeta.ingresos??0)-(pdfMeta.egresos??0);
+  await setDoc(doc(db,IMPORTS,id),{source:'PDF/TEXTO',fileName,target:'extract-summary',inserted:1,totalInput:1,duplicates:0,saldoInicial:pdfMeta.saldoInicial,saldoFinal:pdfMeta.saldoFinal,totalIngresos:pdfMeta.ingresos,totalEgresos:pdfMeta.egresos,totalMovimientos:pdfMeta.movimientos??0,saldoCuenta:pdfMeta.cuenta||pdfMeta.banco,saldoBanco:pdfMeta.banco,saldoDesde:pdfMeta.desde||'',saldoHasta:pdfMeta.hasta||'',diferencia:pdfMeta.saldoFinal==null?null:Math.round(calculado-pdfMeta.saldoFinal),importedBy:auth.currentUser?.email||'',createdAt:serverTimestamp()},{merge:true});
+  toast('Resumen del extracto guardado');
+  await loadData();
+  resetPdfMeta();
   renderPdfPreview();
 }
 
@@ -686,7 +749,7 @@ async function del(kind,id){if(!confirm('Â¿Borrar este registro?'))return; awa
 function bind(){
   $('#btnLogin').onclick=()=>signInWithPopup(auth,provider); $('#btnLogout').onclick=()=>signOut(auth);
   $('#btnRipLogin').onclick=()=>signInWithPopup(ripAuth,ripProvider); $('#btnLoadRip').onclick=loadRip;
-  $$('.tab[data-view]').forEach(b=>b.onclick=()=>showView(b.dataset.view)); if($('#btnApplyDashboard'))$('#btnApplyDashboard').onclick=renderAll; if($('#btnApplyTx'))$('#btnApplyTx').onclick=()=>applyTxFilters(true); if($('#btnExport'))$('#btnExport').onclick=exportCSV; if($('#btnAutoCat'))$('#btnAutoCat').onclick=autoCategorize; if($('#btnReCat'))$('#btnReCat').onclick=()=>autoCategorize(true); if($('#expMonth'))$('#expMonth').onchange=()=>{}; if($('#fcMes'))$('#fcMes').onchange=e=>setFcMonth(e.target.value); ['txFrom','txTo','txTipo','txFact','txCat','txCanal'].forEach(id=>{const el=$('#'+id); if(el)el.onchange=()=>applyTxFilters(true)}); if($('#txQ'))$('#txQ').oninput=()=>applyTxFilters(true); if($('#btnSinCat'))$('#btnSinCat').onclick=()=>{const btn=$('#btnSinCat'); const active=btn.dataset.active==='1'; btn.dataset.active=active?'0':'1'; btn.classList.toggle('primary',!active); btn.classList.toggle('ghost',active); applyTxFilters(true);};
+  $$('.tab[data-view]').forEach(b=>b.onclick=()=>showView(b.dataset.view)); $$('[data-open-view]').forEach(b=>b.onclick=()=>showView(b.dataset.openView)); if($('#btnApplyDashboard'))$('#btnApplyDashboard').onclick=renderAll; if($('#btnApplyTx'))$('#btnApplyTx').onclick=()=>applyTxFilters(true); if($('#btnExport'))$('#btnExport').onclick=exportCSV; if($('#btnAutoCat'))$('#btnAutoCat').onclick=autoCategorize; if($('#btnReCat'))$('#btnReCat').onclick=()=>autoCategorize(true); if($('#expMonth'))$('#expMonth').onchange=()=>{}; if($('#fcMes'))$('#fcMes').onchange=e=>setFcMonth(e.target.value); ['txFrom','txTo','txTipo','txFact','txCat','txCanal'].forEach(id=>{const el=$('#'+id); if(el)el.onchange=()=>applyTxFilters(true)}); if($('#txQ'))$('#txQ').oninput=()=>applyTxFilters(true); if($('#btnSinCat'))$('#btnSinCat').onclick=()=>{const btn=$('#btnSinCat'); const active=btn.dataset.active==='1'; btn.dataset.active=active?'0':'1'; btn.classList.toggle('primary',!active); btn.classList.toggle('ghost',active); applyTxFilters(true);};
   if($('#btnNewFlow'))$('#btnNewFlow').onclick=()=>openEdit('fc',''); if($('#btnNewExtract'))$('#btnNewExtract').onclick=()=>openEdit('ext',''); if($('#editForm'))$('#editForm').onsubmit=saveEdit;
   if($('#accessBody'))$('#accessBody').onclick=e=>{if(!isConfigAdminEmail())return; const chip=e.target.closest('.accessChip'); if(chip){chip.classList.toggle('active'); return;} const card=e.target.closest('.accessCard'); if(!card)return; if(e.target.closest('[data-mark-all]'))card.querySelectorAll('.accessChip').forEach(b=>b.classList.add('active')); if(e.target.closest('[data-clear-pages]'))card.querySelectorAll('.accessChip').forEach(b=>b.classList.remove('active')); if(e.target.closest('[data-invert-pages]'))card.querySelectorAll('.accessChip').forEach(b=>b.classList.toggle('active'));};
   if($('#btnAddAccessUser'))$('#btnAddAccessUser').onclick=()=>{if(!isConfigAdminEmail())return; const email=prompt('Correo del usuario'); if(!email)return; accessUsers[lower(email)]={name:'',role:'accountant',active:true,pages:['flujo','facturacion']}; renderAccessConfig();};
@@ -701,15 +764,16 @@ function bind(){
   if($('#egQ'))$('#egQ').oninput=renderExpectedExpenses;
   if($('#ripBody'))$('#ripBody').onclick=e=>{const ed=e.target.closest('[data-edit-rip]'); if(ed)openEdit('rip',ed.dataset.editRip)}; if($('#btnFilterRip'))$('#btnFilterRip').onclick=renderRipAll; if($('#btnFilterExt'))$('#btnFilterExt').onclick=()=>filterExtract(true); if($('#ripServFilter'))$('#ripServFilter').onchange=renderRipAll; if($('#ripMetFilter'))$('#ripMetFilter').onchange=renderRipAll; if($('#ripFrom'))$('#ripFrom').onchange=renderRipAll; if($('#ripTo'))$('#ripTo').onchange=renderRipAll;
   $('#bankFile').onchange=e=>processBankFile(e.target.files[0]); $('#bankSource').onchange=()=>$('#bankFile').files[0]&&processBankFile($('#bankFile').files[0]); $('#boldMode').onchange=()=>$('#bankFile').files[0]&&processBankFile($('#bankFile').files[0]); $('#boldOnlyOk').onchange=()=>$('#bankFile').files[0]&&processBankFile($('#bankFile').files[0]); $('#splitFees').onchange=()=>$('#bankFile').files[0]&&processBankFile($('#bankFile').files[0]); $('#bankBody').onchange=e=>{const s=e.target.closest('.catSel'); if(s&&bankTx[s.dataset.idx]){bankTx[s.dataset.idx].categoria=s.value; renderBankPreview()}}; $('#btnUploadBank').onclick=uploadBank; $('#btnBankCsv').onclick=bankCsv; $('#btnBankClear').onclick=()=>{bankTx=[]; $('#bankFile').value=''; renderBankPreview(); $('#bankLog').textContent='Esperando archivo...'};
-  $('#btnReadPdf').onclick=readPdf; $('#btnParseText').onclick=parsePdfText; $('#btnSavePdfTx').onclick=savePdfTx; $('#btnClearPdf').onclick=()=>{pdfTx=[]; pdfMeta={saldoInicial:null,saldoFinal:null,ingresos:null,egresos:null,movimientos:null,cuenta:'',banco:'',desde:'',hasta:'',esProcesadorPago:false}; $('#pdfText').value=''; $('#pdfFile').value=''; renderPdfPreview()};
+  $('#btnReadPdf').onclick=readPdf; $('#btnParseText').onclick=parsePdfText; $('#btnSavePdfTx').onclick=savePdfTx; $('#btnClearPdf').onclick=()=>{resetPdfMeta(); ['pdfText','pdfFile','pdfAccount','pdfMonth','pdfSaldoInicial','pdfIngresos','pdfEgresos','pdfSaldoFinal','pdfMovimientos'].forEach(id=>{const el=$('#'+id); if(el)el.value=''}); renderPdfPreview(); $('#pdfLog').textContent='Esperando extracto...';};
+  ['pdfAccount','pdfMonth','pdfSaldoInicial','pdfIngresos','pdfEgresos','pdfSaldoFinal','pdfMovimientos'].forEach(id=>{const el=$('#'+id); if(el)el.oninput=renderPdfPreview;});
   $('#calPrev').onclick=$('#calPrev2').onclick=()=>{calDate.setMonth(calDate.getMonth()-1); renderCalendar()}; $('#calNext').onclick=$('#calNext2').onclick=()=>{calDate.setMonth(calDate.getMonth()+1); renderCalendar()};
 }
 
 bind(); bilBind(); renderAccessConfig();
-onAuthStateChanged(auth, async user=>{const email=user?.email||''; if(user)await loadAccessConfig(); setCurrentAccess(email); const ok=!!user&&currentRole!=='blocked'; $('#userEmail').textContent=email||'Sin sesión'; $('#btnLogin').classList.toggle('hidden',!!user); $('#btnLogout').classList.toggle('hidden',!user); showApp(ok); if(ok) await loadData();});
+onAuthStateChanged(auth, async user=>{const email=user?.email||''; if(user)await loadAccessConfig(); setCurrentAccess(email); const ok=!!user&&currentRole!=='blocked'; $('#userEmail').textContent=email||'Sin sesión'; $('#btnLogin').classList.toggle('hidden',!!user); $('#btnLogout').classList.toggle('hidden',!user); showApp(ok); if(ok){await loadData(); restoreView();}});
 let _ripAuthLoaded=false;
 onAuthStateChanged(ripAuth,user=>{if($('#ripEmail'))$('#ripEmail').textContent=user?.email||'RIP Sin sesión'; if(user&&!_ripAuthLoaded){_ripAuthLoaded=true; loadRip();}});
-if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+if('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(regs=>regs.forEach(reg=>reg.unregister())).catch(()=>{});
 
 // â"€â"€â"€ FACTURACIÃ"N â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
